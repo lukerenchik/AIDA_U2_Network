@@ -59,24 +59,24 @@ import cv2
 from u2net_segmenter import U2NetSegmenter
 ```
 
-# Initialize the segmenter.
+## Initialize the segmenter.
 ```
 segmenter = U2NetSegmenter()
 ```
 
-# Load an image (ensure the image is in BGR format as used by OpenCV).
+## Load an image (ensure the image is in BGR format as used by OpenCV).
 ```
 image = cv2.imread("path/to/your/image.jpg")
 if image is None:
     raise ValueError("Unable to load image.")
 ```
 
-# Process the image.
+## Process the image.
 ```
 result = segmenter.process_image(image)
 ```
 
-# The Segmented Output
+## The Segmented Output
 
 'result' is a NumPy array containing the segmented (warped or cropped) image. It can now be passed directly into your downstream CNN.
 
