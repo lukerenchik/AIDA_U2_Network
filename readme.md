@@ -52,31 +52,31 @@ AIDA_U2_Network/
 
     Place your pre-trained U²-Net weights (e.g. u2net.pth) inside the weights/ folder. Ensure the path in config.py matches the location of your weights file
 
-## Usage
+### Usage
 
 ```
 import cv2
 from u2net_segmenter import U2NetSegmenter
 ```
 
-## Initialize the segmenter.
+### Initialize the segmenter.
 ```
 segmenter = U2NetSegmenter()
 ```
 
-## Load an image (ensure the image is in BGR format as used by OpenCV).
+### Load an image (ensure the image is in BGR format as used by OpenCV).
 ```
 image = cv2.imread("path/to/your/image.jpg")
 if image is None:
     raise ValueError("Unable to load image.")
 ```
 
-## Process the image.
+### Process the image.
 ```
 result = segmenter.process_image(image)
 ```
 
-## The Segmented Output
+### The Segmented Output
 
 'result' is a NumPy array containing the segmented (warped or cropped) image. It can now be passed directly into your downstream CNN.
 
@@ -90,7 +90,7 @@ The code above shows how to import and use the U2NetSegmenter class.
 Remember that your `image` variable must be a valid OpenCV image (BGR format).
 
 
-## Running `demos.py` from the Project Root
+### Running `demos.py` from the Project Root
 
 
 When you run a Python script directly (e.g., `python examples/demos.py`), Python sets the
@@ -104,4 +104,16 @@ With that command, Python will treat `examples` as a top-level package and can p
 from `src`. Inside your `demos.py`, you can then use:
 ```
     from src import U2NetSegmenter
+```
+
+## Citation
+```
+@InProceedings{Qin_2020_PR,
+title = {U2-Net: Going Deeper with Nested U-Structure for Salient Object Detection},
+author = {Qin, Xuebin and Zhang, Zichen and Huang, Chenyang and Dehghan, Masood and Zaiane, Osmar and Jagersand, Martin},
+journal = {Pattern Recognition},
+volume = {106},
+pages = {107404},
+year = {2020}
+}
 ```
