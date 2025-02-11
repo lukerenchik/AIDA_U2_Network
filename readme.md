@@ -25,7 +25,7 @@ AIDA_U2_Network/
     │   └── u2net.pth        # Pre-trained U²-Net model weights.
 └── examples/
     └── demos.py         # Demo script to process all images in the demo_images folder.
-
+```
 
 
 ### Prerequisites
