@@ -1,4 +1,4 @@
-# U²-Net Image Segmentation Package
+# AIDA U²-Net Project
 
 A Python package for in-memory image segmentation using the U²-Net model. This package processes images entirely in memory—cropping or warping them based on detected contours—so that its output can be fed directly into downstream components (e.g. a CNN for determining if an image is AI‑generated).
 
@@ -10,21 +10,21 @@ A Python package for in-memory image segmentation using the U²-Net model. This 
 - **Fallback Cropping:** Falls back to bounding box cropping if a quadrilateral is not detected.
 - **Cloud-Ready API:** Designed to be integrated in cloud services where images are processed and passed directly to subsequent stages.
 
+
 ## Package Structure
 
-
-## Getting Started
-
-AIDA_U2_Network/ 
-├── init.py # Exposes the main API class. 
-├── config.py # Configuration constants (e.g. model weights path, image size). 
-├── segmenter.py # Contains the U2NetSegmenter class with the segmentation API. 
-├── u2net.py # Contains the U²-Net network definition. 
-├── utils.py # Helper functions for image preprocessing and transforms. 
-├── weights/  
-    └── u2net.pth # Pre-trained U²-Net model weights. 
+```plaintext
+AIDA_U2_Network/
+├── src/
+    ├── __init__.py          # Exposes the main API class.
+    ├── config.py            # Configuration constants (e.g. model weights path, image size).
+    ├── segmenter.py         # Contains the U2NetSegmenter class with the segmentation API.
+    ├── u2net.py             # Contains the U²-Net network definition.
+    ├── utils.py             # Helper functions for image preprocessing and transforms.
+    ├── weights/
+    │   └── u2net.pth        # Pre-trained U²-Net model weights.
 └── examples/
-    └── demos.py # Demo script to process all images in the demo_images folder.
+    └── demos.py         # Demo script to process all images in the demo_images folder.
 
 
 
@@ -52,8 +52,10 @@ AIDA_U2_Network/
 
     Place your pre-trained U²-Net weights (e.g. u2net.pth) inside the weights/ folder. Ensure the path in config.py matches the location of your weights file
 
-### Usage
+// ## Usage
+// --------------------------------------------------------------------------------
 
+/*
 import cv2
 from u2net_segmenter import U2NetSegmenter
 
@@ -73,26 +75,25 @@ result = segmenter.process_image(image)
 cv2.imshow("Segmented Image", result)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+*/
+
+// The code above shows how to import and use the U2NetSegmenter class.
+// Remember that your `image` variable must be a valid OpenCV image (BGR format).
 
 
-## Running `demos.py` from the Project Root
+// ## Running `demos.py` from the Project Root
+// --------------------------------------------------------------------------------
 
-When you run a Python script directly (e.g., `python examples/demos.py`), Python sets the current working directory to `examples/` and will not automatically recognize your `src/` folder as a package.
+/*
+When you run a Python script directly (e.g., `python examples/demos.py`), Python sets the
+current working directory to `examples/` and will not automatically recognize your `src/` folder as a package.
 
-A simple way to fix this is to run your script as a module from the **project root** folder instead of running it directly. For example, if your project structure looks like this:
+A simple way to fix this is to run your script as a module from the project root:
 
-myproject/ 
-    ├── examples/ 
-        └── demos.py 
-    └── src/ 
-        ├── init.py 
-        └── segmenter.py
+    python -m examples.demos
 
+With that command, Python will treat `examples` as a top-level package and can properly import
+from `src`. Inside your `demos.py`, you can then use:
 
-Make sure you are in the `myproject/` directory in your terminal, then run:
-
-```bash
-python -m examples.demos
-```
-
-With that command, Python will treat examples as a top-level package and can properly import from src. Inside your demos.py, you can then use:
+    from src import U2NetSegmenter
+*/
