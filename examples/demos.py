@@ -1,18 +1,16 @@
-# demos.py
 import os
 import cv2
-from u2net_segmenter import U2NetSegmenter 
+from src import U2NetSegmenter
 
 def main():
-    # Initialize the segmenter (ensure your weights are in the correct location)
+    # Initialize the segmenter
     segmenter = U2NetSegmenter()
 
-    # Define the input folder containing demo images.
-    input_folder = "demo_images"
+    # Resolve the input folder relative to this file's directory
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    input_folder = os.path.join(base_dir, "demo_images")
 
-    # Loop over each file in the folder.
     for filename in os.listdir(input_folder):
-        # Process only common image file types.
         if not filename.lower().endswith((".png", ".jpg", ".jpeg")):
             continue
 
@@ -23,15 +21,11 @@ def main():
             print(f"Skipping {filename}: unable to load the image.")
             continue
 
-        # Process the image using our API. The result is the final segmented image.
         result = segmenter.process_image(image)
-
-        # Display the resulting image.
         cv2.imshow("Segmented Image", result)
         print(f"Processed {filename}. Press any key to view the next image...")
-        cv2.waitKey(0)  # Wait for a key press before processing the next image
+        cv2.waitKey(0)
 
-    # Clean up any OpenCV windows.
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":

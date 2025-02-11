@@ -15,7 +15,7 @@ A Python package for in-memory image segmentation using the U²-Net model. This 
 
 ## Getting Started
 
-AIDA_U2/ 
+AIDA_U2_Network/ 
 ├── init.py # Exposes the main API class. 
 ├── config.py # Configuration constants (e.g. model weights path, image size). 
 ├── segmenter.py # Contains the U2NetSegmenter class with the segmentation API. 
@@ -73,3 +73,26 @@ result = segmenter.process_image(image)
 cv2.imshow("Segmented Image", result)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+
+## Running `demos.py` from the Project Root
+
+When you run a Python script directly (e.g., `python examples/demos.py`), Python sets the current working directory to `examples/` and will not automatically recognize your `src/` folder as a package.
+
+A simple way to fix this is to run your script as a module from the **project root** folder instead of running it directly. For example, if your project structure looks like this:
+
+myproject/ 
+    ├── examples/ 
+        └── demos.py 
+    └── src/ 
+        ├── init.py 
+        └── segmenter.py
+
+
+Make sure you are in the `myproject/` directory in your terminal, then run:
+
+```bash
+python -m examples.demos
+```
+
+With that command, Python will treat examples as a top-level package and can properly import from src. Inside your demos.py, you can then use:

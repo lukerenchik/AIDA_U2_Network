@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import torch
 from torchvision import transforms
-from src.config import INPUT_SIZE
+from .config import INPUT_SIZE
 
 def preprocess(image):
     """
