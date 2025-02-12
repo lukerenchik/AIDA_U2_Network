@@ -107,6 +107,7 @@ from `src`. Inside your `demos.py`, you can then use:
 ```
 
 ## Citation
+
 ```
 @InProceedings{Qin_2020_PR,
 title = {U2-Net: Going Deeper with Nested U-Structure for Salient Object Detection},
