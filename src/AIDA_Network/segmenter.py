@@ -5,15 +5,32 @@ import numpy as np
 from .u2net import U2NET
 from .utils import run_u2net, approximate_polygon, four_point_transform
 from .config import DEFAULT_MODEL_PATH
+import os
 
 class U2NetSegmenter:
-    def __init__(self, model_path=DEFAULT_MODEL_PATH, device="cpu"):
+    def __init__(self, model_path=None, device="cpu"):
         """
         Initialize the U²-Net model and load weights.
+        
+        Parameters:
+            model_path (str): Path to the weights file.
+            device (str): Device to run the model on.
         """
         self.device = device
         self.model = U2NET(3, 1)
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        
+        # Use the provided model_path if available; otherwise, calculate a default path.
+        if model_path is not None:
+            weights_path = model_path
+        else:
+            # Dynamically get the project root path from the source tree.
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            weights_path = os.path.join(project_root, "weights", "u2net.pth")
+
+        if not os.path.exists(weights_path):
+            raise FileNotFoundError(f"Weight file not found: {weights_path}")
+
+        self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
         self.model.to(self.device)
         self.model.eval()
 
