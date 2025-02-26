@@ -31,24 +31,15 @@ def main():
             print(f"Segmentation failed for {filename}.")
             continue
 
-        probability, heatmap = detector.predict(processed_image, return_heatmap=True)
+        probability, heatmap = detector.predict(processed_image, image_name=filename, return_heatmap=True)
         if probability is None:
             print(f"AI detection failed for {filename}.")
             continue
         
         print(f"{filename}: Probability that the image is AI generated: {probability:.4f}")
 
-        if heatmap is not None:
-            overlay_image = detector.overlay_heatmap(processed_image, heatmap, alpha=0.5)
-            base_name, ext = os.path.splitext(filename)
-            output_filename = f"{base_name}_heatmap{ext}"
-            output_path = os.path.join(output_folder, output_filename)
-            cv2.imwrite(output_path, cv2.cvtColor(overlay_image, cv2.COLOR_RGB2BGR))
-            print(f"Saved heatmap overlay for {filename} as {output_filename}")
-
         cv2.imshow("Segmented & Processed Image", processed_image)
-        if heatmap is not None:
-            cv2.imshow("Heatmap Overlay", overlay_image)
+
         print(f"Processed {filename}. Press any key to view the next image...")
         cv2.waitKey(0)
 

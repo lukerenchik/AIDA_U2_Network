@@ -1,4 +1,3 @@
-# Assuming this is in src/AIDA_Network/AIDA_Network.py
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,11 +8,20 @@ from PIL import Image
 import os
 import numpy as np
 
+# Additional imports for GradCAM visualization
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.image import show_cam_on_image, deprocess_image, preprocess_image
+from pytorch_grad_cam.guided_backprop import GuidedBackpropReLUModel
+
+
 class CustomResNet50(nn.Module):
+    """Custom ResNet50 model with extra convolutional layers."""
+
     def __init__(self, extra_conv_layers=5):
         super(CustomResNet50, self).__init__()
         base_model = resnet50(weights=ResNet50_Weights.DEFAULT)
         self.base = nn.Sequential(*list(base_model.children())[:-2])
+
         conv_layers = []
         for i in range(extra_conv_layers):
             in_channels = 2048 if i == 0 else 128
@@ -21,6 +29,7 @@ class CustomResNet50(nn.Module):
             conv_layers.append(nn.ReLU(inplace=True))
             conv_layers.append(nn.BatchNorm2d(128))
         self.extra_convs = nn.Sequential(*conv_layers)
+
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc1 = nn.Linear(128, 128)
         self.fc2 = nn.Linear(128, 1)
@@ -34,13 +43,20 @@ class CustomResNet50(nn.Module):
         x = self.fc2(x)
         return x
 
+
 class AIDetector:
+    """AI Detector using CustomResNet50 for probability prediction and GradCAM visualization."""
+
     def __init__(self, model_path=None, device=None):
-        self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device if device is not None else torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         print("Using device:", self.device)
 
         if model_path is None:
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            project_root = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..")
+            )
             model_path = os.path.join(project_root, "weights", "AIArtDetection.pth")
 
         if not os.path.exists(model_path):
@@ -48,7 +64,9 @@ class AIDetector:
 
         self.model = CustomResNet50(extra_conv_layers=5).to(self.device)
         try:
-            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            self.model.load_state_dict(
+                torch.load(model_path, map_location=self.device)
+            )
             self.model.eval()
             print(f"Model loaded successfully from {model_path}")
         except Exception as e:
@@ -59,98 +77,160 @@ class AIDetector:
             transforms.ToPILImage(),
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
         ])
 
-        # Heatmap setup
-        self.feature_maps = None
-        self.gradients = None
-        self.target_layer = self.model.extra_convs[-1]
-        self.target_layer.register_forward_hook(self._save_feature_maps)
-        self.target_layer.register_backward_hook(self._save_gradients)
+    def predict(self, image, return_heatmap=False, image_name=""):
+        """
+        Predict the probability of the given image and optionally generate GradCAM visualization.
 
-    def _save_feature_maps(self, module, input, output):
-        self.feature_maps = output
+        Args:
+            image (np.array): Input image in BGR or RGB format.
+            return_heatmap (bool): If True, call gradcam_heatmap to generate heatmap outputs.
 
-    def _save_gradients(self, module, grad_input, grad_output):
-        self.gradients = grad_output[0]
-
-    def predict(self, image, return_heatmap=False):
+        Returns:
+            float: Probability prediction if return_heatmap is False.
+            tuple: (probability, status_code) if return_heatmap is True. Status code is 200 on success,
+                   or 500 if an error occurred during GradCAM generation.
+        """
         if self.model is None:
             print("Model not loaded. Prediction aborted.")
             return None
 
-        try:
-            if image is None:
-                print("Invalid image input: None")
-                return None
+        if image is None:
+            print("Invalid image input: None")
+            return None
 
-            if len(image.shape) == 3 and image.shape[2] == 3:
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            else:
-                image_rgb = image
+        # Convert BGR to RGB if needed
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            image_rgb = image
 
-            input_tensor = self.transform(image_rgb).unsqueeze(0).to(self.device)
+        input_tensor = self.transform(image_rgb).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            output = self.model(input_tensor)
+        probability = torch.sigmoid(output).item()
 
-            if return_heatmap:
-                input_tensor.requires_grad_(True)  # Enable gradients for heatmap
-                output = self.model(input_tensor)  # Forward pass with gradients
-            else:
-                with torch.no_grad():  # No gradients if only predicting probability
-                    output = self.model(input_tensor)
+        if return_heatmap:
+            try:
+                status = gradcam_heatmap(
+                    image=image,  # accepts numpy array or file path
+                    image_name=image_name,
+                    model=self.model,
+                    target_layer=self.model.extra_convs[-1],
+                    target_class=None,
+                    device=self.device
+                )
+            except Exception as e:
+                print("Error in predict while generating heatmap:", e)
+                status = 500
+            return probability, status
 
-            probability = torch.sigmoid(output).item()
+        return probability
 
-            if not return_heatmap:
-                return probability
 
-            # Compute heatmap
-            self.model.zero_grad()
-            output.backward()
 
-            if self.feature_maps is None or self.gradients is None:
-                print("Warning: Failed to capture feature maps or gradients for heatmap.")
-                return probability, None
+#######################################
+#           GRADCAM VISUALIZATION     #
+#######################################
 
-            gradients = self.gradients.cpu().data.numpy()[0]
-            feature_maps = self.feature_maps.cpu().data.numpy()[0]
-            weights = np.mean(gradients, axis=(1, 2))
-            heatmap = np.zeros(feature_maps.shape[1:], dtype=np.float32)
-            for i, w in enumerate(weights):
-                heatmap += w * feature_maps[i]
-            heatmap = np.maximum(heatmap, 0)
-            heatmap = heatmap / (np.max(heatmap) + 1e-10)
-            heatmap = cv2.resize(heatmap, (224, 224), interpolation=cv2.INTER_LINEAR)
+def gradcam_heatmap(image, image_name, model, target_layer, target_class=None, device='cpu'):
+    """
+    Generate GradCAM visualizations for the given image and model.
+    Accepts either a file path (string) or a NumPy array as the image input.
 
-            heatmap_rgb = cv2.applyColorMap((heatmap * 255).astype(np.uint8), cv2.COLORMAP_JET)
-            heatmap_rgb = cv2.cvtColor(heatmap_rgb, cv2.COLOR_BGR2RGB)
+    Args:
+        image (str or np.array): Path to the input image or the image as a numpy array.
+        output_name (str): Base name for saving the outputs.
+        model (torch.nn.Module): Model to use for GradCAM.
+        target_layer (torch.nn.Module): Target layer for GradCAM.
+        target_class (int, optional): Target class index. Defaults to None.
+        device (str): Device to run the computations on.
 
-            return probability, heatmap_rgb
+    Returns:
+        int: Status code (200 if successful, 500 if an error occurred).
+    """
+    try:
+        # If image is a file path, read it.
+        if isinstance(image, str):
+            img = cv2.imread(image, 1)
+            if img is None:
+                print("Error: Could not read image from path.")
+                return 500
+            image_np = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        else:
+            image_np = image
 
-        except Exception as e:
-            print("Error during prediction:", e)
-            return None if not return_heatmap else (None, None)
+        # Convert image to float32 and normalize to [0, 1]
+        image_np = image_np.astype(np.float32) / 255.0
 
-    def overlay_heatmap(self, original_image, heatmap, alpha=0.5):
-        if original_image.shape[:2] != heatmap.shape[:2]:
-            original_image = cv2.resize(original_image, (heatmap.shape[1], heatmap.shape[0]))
-        if len(original_image.shape) == 3 and original_image.shape[2] == 3:
-            original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
-        return cv2.addWeighted(original_image, 1 - alpha, heatmap, alpha, 0)
+        input_tensor = preprocess_image(
+            image_np,
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        ).to(device).float()  # ensure float32
 
+        # Generate GradCAM heatmap using pytorch_grad_cam
+        with GradCAM(model=model, target_layers=[target_layer]) as cam:
+            cam.batch_size = 32
+            grayscale_cam = cam(
+                input_tensor=input_tensor,
+                targets=target_class,
+                aug_smooth=True,
+                eigen_smooth=True
+            )
+            grayscale_cam = grayscale_cam[0, :]
+            cam_image = show_cam_on_image(image_np, grayscale_cam, use_rgb=True)
+            cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
+
+            # Guided Backpropagation
+            gb_model = GuidedBackpropReLUModel(model=model, device=device)
+            gb = gb_model(input_tensor, target_category=target_class)
+            gb = deprocess_image(gb)
+
+            # Save outputs
+            output_dir = os.path.join(
+                os.path.abspath(os.path.curdir),
+                'examples/demo_images/heatmaps'
+            )
+            os.makedirs(output_dir, exist_ok=True)
+
+            cam_output_path = os.path.join(output_dir, f'{image_name}_heatmap.jpg')
+
+
+            cv2.imwrite(cam_output_path, cam_image)
+
+        return 200
+    except Exception as e:
+        print("Error in gradcam_heatmap:", e)
+        return 500
 
 
 # Example usage
 if __name__ == "__main__":
     detector = AIDetector()
-    image = cv2.imread("path/to/image.jpg")
-    
-    # Just probability
-    prob = detector.predict(image)
+    image_path = "path/to/image.jpg"
+    image = cv2.imread(image_path)
+
+    # Predict probability only
+    prob = detector.predict(image, image_path)
     print(f"Probability: {prob}")
-    
-    # Probability + heatmap
-    prob, heatmap = detector.predict(image, return_heatmap=True)
-    if heatmap is not None:
-        result = detector.overlay_heatmap(image, heatmap)
-        cv2.imwrite("heatmap_result.jpg", cv2.cvtColor(result, cv2.COLOR_RGB2BGR))
+
+    # Predict probability and generate GradCAM visualization
+    prob, status = detector.predict(image, return_heatmap=True)
+    print(f"Probability: {prob}, GradCAM status: {status}")
+
+    # Alternatively, directly call gradcam_heatmap using a file path:
+    status2 = gradcam_heatmap(
+        image=image_path,
+        image_name="result_direct",
+        model=detector.model,
+        target_layer=detector.model.extra_convs[-1],
+        target_class=None,
+        device=detector.device
+    )
+    print(f"Direct GradCAM call status: {status2}")
